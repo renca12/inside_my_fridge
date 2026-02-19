@@ -28,10 +28,23 @@ if not firebase_admin._apps:
 db = firestore.client()
 
 
+# Load data
+def load_data():
+    fridge_doc = db.collection("fridge").document("current").get()
+    weekly_plan_doc = db.collection("weekly_plan").document("current").get()
+    
+    fridge = fridge_doc.to_dict() if fridge_doc.exists else {}
+    weekly_plan = weekly_plan_doc.to_dict() if weekly_plan_doc.exists else create_empty_weekly_plan()
+    
+    return fridge, weekly_plan
+
+# Save data
+def save_data():
+    db.collection("fridge").document("current").set(st.session_state.fridge)
+    db.collection("weekly_plan").document("current").set(st.session_state.weekly_plan)
+
+
 ##### -----------------------------------------
-
-
-
 
 
 
@@ -69,25 +82,6 @@ CATEGORY_EMOJIS = {
 
 def create_empty_weekly_plan():
     return {day: {meal: [] for meal in MEALS} for day in DAYS}
-
-# Load data from Firestore
-def load_data():
-    db = st.session_state.firebase_db
-    
-    fridge_doc = db.collection("fridge").document("current").get()
-    weekly_plan_doc = db.collection("weekly_plan").document("current").get()
-    
-    fridge = fridge_doc.to_dict() if fridge_doc.exists else {}
-    weekly_plan = weekly_plan_doc.to_dict() if weekly_plan_doc.exists else create_empty_weekly_plan()
-    
-    return fridge, weekly_plan
-
-# Save data to Firestore
-def save_data():
-    db = st.session_state.firebase_db
-    
-    db.collection("fridge").document("current").set(st.session_state.fridge)
-    db.collection("weekly_plan").document("current").set(st.session_state.weekly_plan)
 
 
 if "fridge" not in st.session_state or "weekly_plan" not in st.session_state:
