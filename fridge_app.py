@@ -13,7 +13,6 @@ if not firebase_admin._apps:
         "type": st.secrets["firebase"]["type"],
         "project_id": st.secrets["firebase"]["project_id"],
         "private_key_id": st.secrets["firebase"]["private_key_id"],
-        # Replace literal \n in private_key if stored that way
         "private_key": st.secrets["firebase"]["private_key"].replace("\\n", "\n"),
         "client_email": st.secrets["firebase"]["client_email"],
         "client_id": st.secrets["firebase"]["client_id"],
@@ -27,18 +26,20 @@ if not firebase_admin._apps:
 # Firestore client
 db = firestore.client()
 
+DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
+MEALS = ["Breakfast", "Lunch", "Dinner", "SNACKS"]
 
-# Load data
+def create_empty_weekly_plan():
+    return {day: {meal: [] for meal in MEALS} for day in DAYS}
+
 def load_data():
     fridge_doc = db.collection("fridge").document("current").get()
     weekly_plan_doc = db.collection("weekly_plan").document("current").get()
-    
+
     fridge = fridge_doc.to_dict() if fridge_doc.exists else {}
     weekly_plan = weekly_plan_doc.to_dict() if weekly_plan_doc.exists else create_empty_weekly_plan()
-    
     return fridge, weekly_plan
 
-# Save data
 def save_data():
     db.collection("fridge").document("current").set(st.session_state.fridge)
     db.collection("weekly_plan").document("current").set(st.session_state.weekly_plan)
