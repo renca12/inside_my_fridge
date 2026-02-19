@@ -2,6 +2,36 @@ import streamlit as st
 import json
 import os
 
+##### FIREBASE INFO ---------------------------
+
+import firebase_admin
+from firebase_admin import credentials, firestore
+
+# Initialize Firebase once
+if "firebase_db" not in st.session_state:
+    cred = credentials.Certificate({
+        "type": st.secrets["firebase"]["type"],
+        "project_id": st.secrets["firebase"]["project_id"],
+        "private_key_id": st.secrets["firebase"]["private_key_id"],
+        "private_key": st.secrets["firebase"]["private_key"],
+        "client_email": st.secrets["firebase"]["client_email"],
+        "client_id": st.secrets["firebase"]["client_id"],
+        "auth_uri": st.secrets["firebase"]["auth_uri"],
+        "token_uri": st.secrets["firebase"]["token_uri"],
+        "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
+        "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"]
+    })
+    firebase_admin.initialize_app(cred)
+    st.session_state.firebase_db = firestore.client()
+
+
+##### -----------------------------------------
+
+
+
+
+
+
 DATA_FILE = "fridge_data.json"
 
 DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -37,22 +67,24 @@ CATEGORY_EMOJIS = {
 def create_empty_weekly_plan():
     return {day: {meal: [] for meal in MEALS} for day in DAYS}
 
+# Load data from Firestore
 def load_data():
-    if os.path.exists(DATA_FILE):
-        with open(DATA_FILE, "r") as f:
-            data = json.load(f)
-            return (
-                data.get("fridge", {}),
-                data.get("weekly_plan", create_empty_weekly_plan())
-            )
-    return {}, create_empty_weekly_plan()
+    db = st.session_state.firebase_db
+    
+    fridge_doc = db.collection("fridge").document("current").get()
+    weekly_plan_doc = db.collection("weekly_plan").document("current").get()
+    
+    fridge = fridge_doc.to_dict() if fridge_doc.exists else {}
+    weekly_plan = weekly_plan_doc.to_dict() if weekly_plan_doc.exists else create_empty_weekly_plan()
+    
+    return fridge, weekly_plan
 
+# Save data to Firestore
 def save_data():
-    with open(DATA_FILE, "w") as f:
-        json.dump({
-            "fridge": st.session_state.fridge,
-            "weekly_plan": st.session_state.weekly_plan
-        }, f, indent=4)
+    db = st.session_state.firebase_db
+    
+    db.collection("fridge").document("current").set(st.session_state.fridge)
+    db.collection("weekly_plan").document("current").set(st.session_state.weekly_plan)
 
 
 if "fridge" not in st.session_state or "weekly_plan" not in st.session_state:
