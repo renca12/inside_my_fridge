@@ -255,7 +255,7 @@ with main_tabs[1]:
                             # Remove Ate Out / Skipped Meal
                             st.session_state.weekly_plan[day][meal] = [
                                 dish for dish in st.session_state.weekly_plan[day][meal]
-                                if dish["name"] not in ["Ate Out", "Skipped Meal"]
+                                if not dish.get("ate_out", False) and dish["name"] != "Skipped Meal"
                             ]
                             # Add new dish
                             st.session_state.weekly_plan[day][meal].append({
@@ -269,19 +269,51 @@ with main_tabs[1]:
 
                 # ----------------- Ate Out -----------------
                 with col_dish_buttons[1]:
-                    if st.button("🍽 Ate Out", key=f"{day}_{meal}_ate_out_meal"):
-                        # Remove all dishes and Skipped Meal
-                        st.session_state.weekly_plan[day][meal] = []
-                        # Add Ate Out entry
-                        st.session_state.weekly_plan[day][meal].append({
-                            "name": "Ate Out",
-                            "ingredients": [],
-                            "cooked": True,
-                            "eaten": True
-                        })
-                        save_data()
-                        st.success(f"{meal} marked as Ate Out ✅")
-                        st.rerun()
+                    toggle_key = f"{day}_{meal}_ate_out_toggle"
+                    input_key = f"{day}_{meal}_ate_out_name"
+
+                    if toggle_key not in st.session_state:
+                        st.session_state[toggle_key] = False
+
+                    if not st.session_state[toggle_key]:
+                        if st.button("🍽 Ate Out", key=f"{day}_{meal}_ate_out_btn"):
+                            st.session_state[toggle_key] = True
+                            st.rerun()
+
+                    if st.session_state[toggle_key]:
+                        restaurant_name = st.text_input(
+                            "Where did you eat?",
+                            key=input_key,
+                            placeholder="Enter restaurant or cafe name..."
+                        )
+
+                        col_confirm, col_cancel = st.columns(2)
+
+                        with col_confirm:
+                            if st.button("Confirm", key=f"{day}_{meal}_confirm_ate_out"):
+                                st.session_state.weekly_plan[day][meal] = []
+                                st.session_state.weekly_plan[day][meal].append({
+                                    "name": restaurant_name if restaurant_name else "Ate Out",
+                                    "ingredients": [],
+                                    "cooked": True,
+                                    "eaten": True,
+                                    "ate_out": True
+                                })
+                                save_data()
+
+                                st.session_state[toggle_key] = False
+                                if input_key in st.session_state:
+                                    del st.session_state[input_key]
+
+                                st.success("Meal marked as Ate Out ✅")
+                                st.rerun()
+
+                        with col_cancel:
+                            if st.button("Cancel", key=f"{day}_{meal}_cancel_ate_out"):
+                                st.session_state[toggle_key] = False
+                                if input_key in st.session_state:
+                                    del st.session_state[input_key]
+                                st.rerun()
 
                 # ----------------- Skipped Meal -----------------
                 with col_dish_buttons[2]:
@@ -304,7 +336,7 @@ with main_tabs[1]:
                 dishes = st.session_state.weekly_plan[day][meal]
 
                 # Hide "Consume Entire Meal" button if Ate Out / Skipped Meal
-                if dishes and all(d["name"] not in ["Ate Out", "Skipped Meal"] for d in dishes):
+                if dishes and all(not d.get("ate_out", False) and d["name"] != "Skipped Meal" for d in dishes):
                     total_ingredients = sum(len(d["ingredients"]) for d in dishes)
                     if total_ingredients > 0:
                         if st.button(f"🔥 Consume Entire {meal}", key=f"{day}_{meal}_cook_all"):
@@ -320,7 +352,7 @@ with main_tabs[1]:
                     with st.expander(f"🍽 {dish['name']} {status}", expanded=False):
 
                         # ----------------- Ingredient Inputs -----------------
-                        if dish["name"] not in ["Ate Out", "Skipped Meal"]:
+                        if not dish.get("ate_out", False) and dish["name"] != "Skipped Meal":
                             col1, col2 = st.columns(2)
                             with col1:
                                 options = [placeholder] + fridge_items
@@ -359,15 +391,16 @@ with main_tabs[1]:
                                 st.write(f"- {ing['quantity']:.2f} {ing['name']}")
 
                             # Eat this dish
-                            if st.button("Eat This Dish", key=f"{day}_{meal}_{dish_index}_cook"):
-                                if not dish.get("eaten", False):
-                                    use_ingredients(dish["ingredients"])
-                                    dish["eaten"] = True
-                                    save_data()
-                                    st.success("Inventory updated!")
-                                    st.rerun()
-                                else:
-                                    st.warning("This dish has already been eaten.")
+                            if not dish.get("ate_out", False):
+                                if st.button("Eat This Dish", key=f"{day}_{meal}_{dish_index}_cook"):
+                                    if not dish.get("eaten", False):
+                                        use_ingredients(dish["ingredients"])
+                                        dish["eaten"] = True
+                                        save_data()
+                                        st.success("Inventory updated!")
+                                        st.rerun()
+                                    else:
+                                        st.warning("This dish has already been eaten.")
                         else:
                             st.info("This dish is marked as Ate Out or Skipped — no fridge ingredients needed.")
 
