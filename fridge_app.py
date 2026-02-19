@@ -7,12 +7,14 @@ import os
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-if "firebase_app" not in st.session_state:
+# Only initialize if no apps exist
+if not firebase_admin._apps:
     cred = credentials.Certificate({
         "type": st.secrets["firebase"]["type"],
         "project_id": st.secrets["firebase"]["project_id"],
         "private_key_id": st.secrets["firebase"]["private_key_id"],
-        "private_key": st.secrets["firebase"]["private_key"],
+        # Replace literal \n in private_key if stored that way
+        "private_key": st.secrets["firebase"]["private_key"].replace("\\n", "\n"),
         "client_email": st.secrets["firebase"]["client_email"],
         "client_id": st.secrets["firebase"]["client_id"],
         "auth_uri": st.secrets["firebase"]["auth_uri"],
@@ -20,8 +22,7 @@ if "firebase_app" not in st.session_state:
         "auth_provider_x509_cert_url": st.secrets["firebase"]["auth_provider_x509_cert_url"],
         "client_x509_cert_url": st.secrets["firebase"]["client_x509_cert_url"]
     })
-
-    st.session_state.firebase_app = firebase_admin.initialize_app(cred)
+    firebase_admin.initialize_app(cred)
 
 # Firestore client
 db = firestore.client()
