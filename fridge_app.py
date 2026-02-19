@@ -183,6 +183,7 @@ with main_tabs[0]:
     if st.button("Add to Fridge"):
         if item_name and unit:
             add_to_fridge(item_name, quantity, unit, category, staple, low_threshold)
+            st.info("Added to inventory...")
             save_data()
             st.rerun()
 
