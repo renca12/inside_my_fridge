@@ -1,0 +1,3 @@
+This repository has contents for a small fun project to help me track the contents of my fridge so that I stop wasting my food and letting it go bad...
+
+this is a project to preserve my wallet. 
