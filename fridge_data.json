@@ -1,0 +1,433 @@
+{
+    "fridge": {
+        "pork chops": {
+            "quantity": 4.0,
+            "unit": "chops",
+            "category": "\ud83e\udd69 \ud83e\udd69 meats & poultry \ud83d\udc14 \ud83d\udc14",
+            "staple": false,
+            "low_threshold": null
+        },
+        "chicken feet": {
+            "quantity": 1.0,
+            "unit": "bag",
+            "category": "\ud83e\udd69 meats & poultry \ud83d\udc14",
+            "staple": false,
+            "low_threshold": null
+        },
+        "sliced beef shank": {
+            "quantity": 2.0,
+            "unit": "servings",
+            "category": "\ud83e\udd69 meats & poultry \ud83d\udc14",
+            "staple": false,
+            "low_threshold": null
+        },
+        "chicken sausage": {
+            "quantity": 5.0,
+            "unit": "sausages",
+            "category": "\ud83e\udd69 meats & poultry \ud83d\udc14",
+            "staple": false,
+            "low_threshold": null
+        },
+        "rotisserie chicken": {
+            "quantity": 2.0,
+            "unit": "servings",
+            "category": "\ud83e\udd69 meats & poultry \ud83d\udc14",
+            "staple": false,
+            "low_threshold": null
+        },
+        "fish tofu": {
+            "quantity": 4.0,
+            "unit": "servings",
+            "category": "\ud83d\udc1f seafood \ud83e\udd90",
+            "staple": true,
+            "low_threshold": 1.0
+        },
+        "frozen shrimp": {
+            "quantity": 2.0,
+            "unit": "servings",
+            "category": "\ud83d\udc1f seafood \ud83e\udd90",
+            "staple": false,
+            "low_threshold": null
+        },
+        "eggs": {
+            "quantity": 10.0,
+            "unit": "eggs",
+            "category": "\ud83e\udd5a eggs & dairy \ud83e\udd5b",
+            "staple": true,
+            "low_threshold": 3.0
+        },
+        "whole foods salted butter": {
+            "quantity": 2.0,
+            "unit": "sticks",
+            "category": "\ud83e\udd5a eggs & dairy \ud83e\udd5b",
+            "staple": false,
+            "low_threshold": null
+        },
+        "kerrygold salted butter": {
+            "quantity": 0.9,
+            "unit": "sticks",
+            "category": "\ud83e\udd5a eggs & dairy \ud83e\udd5b",
+            "staple": false,
+            "low_threshold": null
+        },
+        "unsalted butter": {
+            "quantity": 3.0,
+            "unit": "sticks",
+            "category": "\ud83e\udd5a eggs & dairy \ud83e\udd5b",
+            "staple": false,
+            "low_threshold": null
+        },
+        "whole milk": {
+            "quantity": 25.0,
+            "unit": "fluid oz",
+            "category": "\ud83e\udd5a eggs & dairy \ud83e\udd5b",
+            "staple": true,
+            "low_threshold": 10.0
+        },
+        "siggi's yogurt": {
+            "quantity": 4.0,
+            "unit": "servings",
+            "category": "\ud83e\udd5a eggs & dairy \ud83e\udd5b",
+            "staple": false,
+            "low_threshold": null
+        },
+        "icelandic provisions yogurt": {
+            "quantity": 5.0,
+            "unit": "cups",
+            "category": "\ud83e\udd5a eggs & dairy \ud83e\udd5b",
+            "staple": false,
+            "low_threshold": null
+        },
+        "oat milk": {
+            "quantity": 2.75,
+            "unit": "cartons",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": true,
+            "low_threshold": 1.0
+        },
+        "heytea pomelo jasmine tea": {
+            "quantity": 1.0,
+            "unit": "bottle",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "japanese sparkling water": {
+            "quantity": 1.0,
+            "unit": "bottle",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "heytea matcha jasmine tea": {
+            "quantity": 2.0,
+            "unit": "bottles",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "jasmine honey tea": {
+            "quantity": 1.0,
+            "unit": "bottles",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "chocolate milk": {
+            "quantity": 1.0,
+            "unit": "carton",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "soy milk": {
+            "quantity": 0.9,
+            "unit": "carton",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "concentrated vietnamese coffee": {
+            "quantity": 0.5,
+            "unit": "bottle",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "jasmine tea (less sweet)": {
+            "quantity": 1.0,
+            "unit": "bottle",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "better buzz sparkling lemon lime": {
+            "quantity": 2.0,
+            "unit": "bottles",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "coconut milk": {
+            "quantity": 1.0,
+            "unit": "carton",
+            "category": "\u2615\ufe0f beverages \ud83c\udf75",
+            "staple": false,
+            "low_threshold": null
+        },
+        "zucchini": {
+            "quantity": 3.0,
+            "unit": "zucchinis",
+            "category": "\ud83c\udf4e fruits & veggies \ud83e\udd55",
+            "staple": false,
+            "low_threshold": null
+        },
+        "bokchoy": {
+            "quantity": 2.0,
+            "unit": "servings",
+            "category": "\ud83c\udf4e fruits & veggies \ud83e\udd55",
+            "staple": false,
+            "low_threshold": null
+        },
+        "tomato": {
+            "quantity": 2.0,
+            "unit": "tomatoes",
+            "category": "\ud83c\udf4e fruits & veggies \ud83e\udd55",
+            "staple": false,
+            "low_threshold": null
+        },
+        "short grain rice": {
+            "quantity": 6.0,
+            "unit": "servings",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": false,
+            "low_threshold": null
+        },
+        "medium grain rice (uncooked)": {
+            "quantity": 0.2,
+            "unit": "bag",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": true,
+            "low_threshold": 0.1
+        },
+        "yuanxian hotpot": {
+            "quantity": 3.0,
+            "unit": "bags",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": true,
+            "low_threshold": null
+        },
+        "instant espresso": {
+            "quantity": 0.4,
+            "unit": "jar",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": true,
+            "low_threshold": 0.1
+        },
+        "loose leaf black tea": {
+            "quantity": 0.8,
+            "unit": "bags",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": true,
+            "low_threshold": 0.1
+        },
+        "loose leaf earl grey": {
+            "quantity": 0.8,
+            "unit": "tin",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": false,
+            "low_threshold": null
+        },
+        "bread flour": {
+            "quantity": 0.8,
+            "unit": "bag",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": false,
+            "low_threshold": null
+        },
+        "all purpose flour": {
+            "quantity": 0.8,
+            "unit": "bag",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": false,
+            "low_threshold": null
+        },
+        "frozen rice": {
+            "quantity": 4.0,
+            "unit": "blocks",
+            "category": "\ud83c\udf5d pre-made foods/leftovers \ud83e\udd61",
+            "staple": true,
+            "low_threshold": 1.0
+        },
+        "dried osmanthus flower": {
+            "quantity": 0.5,
+            "unit": "bag",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": true,
+            "low_threshold": 0.2
+        },
+        "orzo": {
+            "quantity": 0.75,
+            "unit": "box",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": false,
+            "low_threshold": null
+        },
+        "loose leaf thai tea": {
+            "quantity": 1.0,
+            "unit": "bag",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": false,
+            "low_threshold": null
+        },
+        "udon": {
+            "quantity": 6.0,
+            "unit": "packets",
+            "category": "\ud83e\uddca frozen/instant foods \ud83c\udf7d\ufe0f",
+            "staple": true,
+            "low_threshold": 1.0
+        },
+        "wei-chuan pork and shrimp wontons": {
+            "quantity": 1.0,
+            "unit": "serving",
+            "category": "\ud83e\uddca frozen/instant foods \ud83c\udf7d\ufe0f",
+            "staple": false,
+            "low_threshold": null
+        },
+        "dried bamboo fungus": {
+            "quantity": 1.0,
+            "unit": "serving",
+            "category": "\ud83c\udf5a dried goods",
+            "staple": false,
+            "low_threshold": null
+        },
+        "bcd soondubu": {
+            "quantity": 1.0,
+            "unit": "block",
+            "category": "\ud83e\uddca frozen/instant foods \ud83c\udf7d\ufe0f",
+            "staple": false,
+            "low_threshold": null
+        },
+        "\u6cb9\u6761": {
+            "quantity": 3.0,
+            "unit": "sticks",
+            "category": "\ud83e\uddca frozen/instant foods \ud83c\udf7d\ufe0f",
+            "staple": false,
+            "low_threshold": null
+        },
+        "seafood master shrimp and mushroom wonton": {
+            "quantity": 2.0,
+            "unit": "servings",
+            "category": "\ud83e\uddca frozen/instant foods \ud83c\udf7d\ufe0f",
+            "staple": false,
+            "low_threshold": null
+        },
+        "onions": {
+            "quantity": 4.5,
+            "unit": "onions",
+            "category": "\ud83c\udf4e fruits & veggies \ud83e\udd55",
+            "staple": true,
+            "low_threshold": 1.0
+        },
+        "buldak carbonara": {
+            "quantity": 2.0,
+            "unit": "packets",
+            "category": "\ud83e\uddca frozen/instant foods \ud83c\udf7d\ufe0f",
+            "staple": false,
+            "low_threshold": null
+        },
+        "osmanthus syrup": {
+            "quantity": 0.4,
+            "unit": "jar",
+            "category": "\ud83c\udf67 sauces ",
+            "staple": true,
+            "low_threshold": 0.1
+        },
+        "hotpot base": {
+            "quantity": 0.7,
+            "unit": "packet",
+            "category": "\ud83c\udf67 sauces ",
+            "staple": false,
+            "low_threshold": null
+        },
+        "yuan xian packet combo": {
+            "quantity": 1.0,
+            "unit": "combo",
+            "category": "\ud83c\udf67 sauces ",
+            "staple": false,
+            "low_threshold": null
+        },
+        "pho noodles": {
+            "quantity": 3.0,
+            "unit": "servings",
+            "category": "\ud83e\uddca frozen/instant foods \ud83c\udf7d\ufe0f",
+            "staple": false,
+            "low_threshold": null
+        },
+        "beef tendon balls": {
+            "quantity": 7.0,
+            "unit": "balls",
+            "category": "\ud83e\udd69 meats & poultry \ud83d\udc14",
+            "staple": false,
+            "low_threshold": null
+        },
+        "apple sauce": {
+            "quantity": 24.0,
+            "unit": "sachets",
+            "category": "\ud83c\udf7f snacks",
+            "staple": true,
+            "low_threshold": 3.0
+        },
+        "heavy cream": {
+            "quantity": 0.1,
+            "unit": "carton",
+            "category": "\ud83e\udd5a eggs & dairy \ud83e\udd5b",
+            "staple": true,
+            "low_threshold": 0.2
+        }
+    },
+    "weekly_plan": {
+        "Sunday": {
+            "Breakfast": [],
+            "Lunch": [],
+            "Dinner": [],
+            "SNACKS": []
+        },
+        "Monday": {
+            "Breakfast": [],
+            "Lunch": [],
+            "Dinner": [],
+            "SNACKS": []
+        },
+        "Tuesday": {
+            "Breakfast": [],
+            "Lunch": [],
+            "Dinner": [],
+            "SNACKS": []
+        },
+        "Wednesday": {
+            "Breakfast": [],
+            "Lunch": [],
+            "Dinner": [],
+            "SNACKS": []
+        },
+        "Thursday": {
+            "Breakfast": [],
+            "Lunch": [],
+            "Dinner": [],
+            "SNACKS": []
+        },
+        "Friday": {
+            "Breakfast": [],
+            "Lunch": [],
+            "Dinner": [],
+            "SNACKS": []
+        },
+        "Saturday": {
+            "Breakfast": [],
+            "Lunch": [],
+            "Dinner": [],
+            "SNACKS": []
+        }
+    }
+}
