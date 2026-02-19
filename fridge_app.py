@@ -92,6 +92,9 @@ if "fridge" not in st.session_state or "weekly_plan" not in st.session_state:
 if "undo_stack" not in st.session_state:
     st.session_state.undo_stack = []
 
+
+fridge_doc = db.collection("fridge").document("current").get()
+print(fridge_doc.exists)
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
 # HELPERS
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
