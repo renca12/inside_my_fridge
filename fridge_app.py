@@ -1,13 +1,11 @@
 import streamlit as st
-import json
-import os
+from datetime import date, datetime, timedelta
 
 ##### FIREBASE INFO ---------------------------
 
 import firebase_admin
 from firebase_admin import credentials, firestore
 
-# Only initialize if no apps exist
 if not firebase_admin._apps:
     cred = credentials.Certificate({
         "type": st.secrets["firebase"]["type"],
@@ -23,7 +21,6 @@ if not firebase_admin._apps:
     })
     firebase_admin.initialize_app(cred)
 
-# Firestore client
 db = firestore.client()
 
 DAYS = ["Sunday", "Monday", "Tuesday", "Wednesday", "Thursday", "Friday", "Saturday"]
@@ -96,11 +93,13 @@ if "undo_stack" not in st.session_state:
 
 fridge_doc = db.collection("fridge").document("current").get()
 print(fridge_doc.exists)
+
+
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
 # HELPERS
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
 
-def add_to_fridge(name, quantity, unit, category, staple, low_threshold=None):
+def add_to_fridge(name, quantity, unit, category, staple, low_threshold=None, has_expiry=False, expiry_days=None):
     name = name.lower()
     if name in st.session_state.fridge:
         st.session_state.fridge[name]["quantity"] += quantity
@@ -110,7 +109,10 @@ def add_to_fridge(name, quantity, unit, category, staple, low_threshold=None):
             "unit": unit,
             "category": category,
             "staple": staple,
-            "low_threshold": float(low_threshold) if staple and low_threshold else None
+            "low_threshold": float(low_threshold) if staple and low_threshold else None, 
+            "has_expiry": has_expiry,
+            "expiry_days": float(expiry_days) if has_expiry and expiry_days else None,
+            "date_added": str(date.today()) if has_expiry else None,
         }
 
 def remove_from_fridge(name, quantity):
@@ -140,6 +142,50 @@ def cook_entire_meal(dishes):
             use_ingredients(dish["ingredients"])
             dish["eaten"] = True
 
+def build_grocery_list():
+    needed = {}
+
+    for day in st.session_state.weekly_plan.values():
+        for meal in day.values():
+            for dish in meal:
+                if dish.get("ate_out", False):
+                    continue
+                for ing in dish.get("ingredients", []):
+                    name = ing["name"]
+                    qty = ing["quantity"]
+
+                    if name not in st.session_state.fridge:
+                        needed[name] = needed.get(name, 0) + qty
+
+    return needed
+
+def get_expiry_status(item_info):
+    if not item_info.get("has_expiry"):
+        return None
+
+    try:
+        added_str = item_info.get("date_added")
+        days = item_info.get("expiry_days")
+
+        # backward compatibility for old data
+        if days is None and item_info.get("expiry_weeks") is not None:
+            days = int(float(item_info.get("expiry_weeks")) * 7)
+
+        if not added_str or not days:
+            return None
+
+        added = datetime.strptime(added_str, "%Y-%m-%d").date()
+        expiry_date = added + timedelta(days=days)
+        days_left = (expiry_date - date.today()).days
+
+        if days_left < 0:
+            return ("expired", days_left)
+        elif days_left <= 3:
+            return ("soon", days_left)
+        else:
+            return ("ok", days_left)
+    except Exception:
+        return None
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
 # UI
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
@@ -150,8 +196,6 @@ st.title("🥕 Inside My Inventory")
 main_tabs = st.tabs(["🧊 Inventory", "🍽 Meal Plan", "📋 Summary"])
 
 # FRIDGE TAB
-
-
 with main_tabs[0]:
 
     st.subheader("⚠️ Low Staples Summary")
@@ -179,10 +223,19 @@ with main_tabs[0]:
         low_threshold = None
         if staple:
             low_threshold = st.number_input("Low threshold (alert when below this)", min_value=0.0, step=0.1, format="%.2f")
+        has_expiry = st.checkbox("Track expiration")
+
+        expiry_days = None
+        if has_expiry:
+            expiry_days = st.number_input(
+                "Lasts how many days?",
+                min_value=1,
+                step=1,
+            )
 
     if st.button("Add to Fridge"):
         if item_name and unit:
-            add_to_fridge(item_name, quantity, unit, category, staple, low_threshold)
+            add_to_fridge(item_name, quantity, unit, category, staple, low_threshold, has_expiry, expiry_days)
             st.info("Added to inventory...")
             save_data()
             st.rerun()
@@ -196,10 +249,20 @@ with main_tabs[0]:
                 for item, info in items_in_cat.items():
                     col1, col2 = st.columns([6,1])
                     low_warning = ""
+                    # --- expiry warning ---
+                    expiry_warning = ""
+                    status_exp = get_expiry_status(info)
+
+                    if status_exp:
+                        state, days_left = status_exp
+                        if state == "expired":
+                            expiry_warning = " 🚨 EXPIRED"
+                        elif state == "soon":
+                            expiry_warning = f" ⚠️ use soon ({days_left}d)"
                     if info["staple"] and info["low_threshold"] is not None:
                         if info["quantity"] <= info["low_threshold"]:
                             low_warning = " ⚠️⏳⚠️"
-                    col1.write(f"**{item}** — {info['quantity']:.2f} {info['unit']}{low_warning}")
+                    col1.write(f"**{item}** — {info['quantity']:.2f} {info['unit']}{low_warning}{expiry_warning}")
                     if col2.button("❌", key=f"delete_{item}"):
                         del st.session_state.fridge[item]
                         save_data()
@@ -228,8 +291,6 @@ with main_tabs[0]:
 
 
 # MEAL PLAN TAB
-
-# MEAL PLAN TAB
 with main_tabs[1]:
 
     if st.button("🔄 Reset Weekly Meal Plan"):
@@ -246,27 +307,61 @@ with main_tabs[1]:
             for meal in MEALS:
                 st.subheader(meal)
 
-                new_dish_name = st.text_input(f"Add Dish to {meal}", key=f"{day}_{meal}_new_dish")
                 col_dish_buttons = st.columns(3)
 
                 # ----------------- Add Dish -----------------
                 with col_dish_buttons[0]:
-                    if st.button("Add Dish", key=f"{day}_{meal}_add_dish"):
-                        if new_dish_name:
-                            # Remove Ate Out / Skipped Meal
-                            st.session_state.weekly_plan[day][meal] = [
-                                dish for dish in st.session_state.weekly_plan[day][meal]
-                                if not dish.get("ate_out", False) and dish["name"] != "Skipped Meal"
-                            ]
-                            # Add new dish
-                            st.session_state.weekly_plan[day][meal].append({
-                                "name": new_dish_name,
-                                "ingredients": [],
-                                "cooked": False,
-                                "eaten": False
-                            })
-                            save_data()
+                    toggle_key = f"{day}_{meal}_add_dish_toggle"
+                    input_key = f"{day}_{meal}_add_dish_name"
+
+                    if toggle_key not in st.session_state:
+                        st.session_state[toggle_key] = False
+
+                    # button to open form
+                    if not st.session_state[toggle_key]:
+                        if st.button("➕ Add Dish", key=f"{day}_{meal}_add_dish_btn"):
+                            st.session_state[toggle_key] = True
                             st.rerun()
+
+                    # form appears
+                    if st.session_state[toggle_key]:
+                        dish_name = st.text_input(
+                            "Dish name",
+                            key=input_key,
+                            placeholder="Enter dish name..."
+                        )
+
+                        col_c, col_x = st.columns(2)
+
+                        with col_c:
+                            if st.button("Confirm", key=f"{day}_{meal}_confirm_add_dish"):
+                                if dish_name:
+                                    st.session_state.weekly_plan[day][meal] = [
+                                        dish for dish in st.session_state.weekly_plan[day][meal]
+                                        if not dish.get("ate_out", False) and dish["name"] != "Skipped Meal"
+                                    ]
+
+                                    st.session_state.weekly_plan[day][meal].append({
+                                        "name": dish_name,
+                                        "ingredients": [],
+                                        "cooked": False,
+                                        "eaten": False, 
+                                        "is_drink": False
+                                    })
+
+                                    save_data()
+
+                                st.session_state[toggle_key] = False
+                                if input_key in st.session_state:
+                                    del st.session_state[input_key]
+                                st.rerun()
+
+                        with col_x:
+                            if st.button("Cancel", key=f"{day}_{meal}_cancel_add_dish"):
+                                st.session_state[toggle_key] = False
+                                if input_key in st.session_state:
+                                    del st.session_state[input_key]
+                                st.rerun()
 
                 # ----------------- Ate Out -----------------
                 with col_dish_buttons[1]:
@@ -350,46 +445,89 @@ with main_tabs[1]:
 
                 for dish_index, dish in enumerate(dishes):
                     status = "✅" if dish.get("eaten", False) else ""
-                    with st.expander(f"🍽 {dish['name']} {status}", expanded=False):
+                    emoji = "🍹" if dish.get("is_drink", False) else "🍽"
 
+                    with st.expander(f"{emoji} {dish['name']} {status}", expanded=False):
+                        drink_toggle_key = f"{day}_{meal}_{dish_index}_is_drink"
+
+                        is_drink_val = st.toggle(
+                            "Mark as drink 🧋",
+                            value=dish.get("is_drink", False),
+                            key=drink_toggle_key
+                        )
+
+                        # Only update + rerun if it actually changed
+                        if is_drink_val != dish.get("is_drink", False):
+                            dish["is_drink"] = is_drink_val
+                            save_data()
+                            st.rerun()
                         # ----------------- Ingredient Inputs -----------------
                         if not dish.get("ate_out", False) and dish["name"] != "Skipped Meal":
                             col1, col2 = st.columns(2)
                             with col1:
-                                options = [placeholder] + fridge_items
+                                options = [placeholder] + [
+                                    f"{item} ({st.session_state.fridge[item]['unit']})"
+                                    for item in fridge_items
+                                ]
+                                select_key = f"{day}_{meal}_{dish_index}_ing_name"
+
                                 ing_name = st.selectbox(
                                     "Ingredient",
                                     options=options,
-                                    index=0,
-                                    key=f"{day}_{meal}_{dish_index}_ing_name"
+                                    index=options.index(placeholder),
+                                    key=select_key
                                 )
                             with col2:
+                                qty_key = f"{day}_{meal}_{dish_index}_ing_qty"
+
                                 ing_qty = st.number_input(
                                     "Quantity Used",
                                     min_value=0.1,
                                     step=0.1,
                                     format="%.2f",
-                                    key=f"{day}_{meal}_{dish_index}_ing_qty"
+                                    key=qty_key
                                 )
 
                             # Add ingredient
                             if st.button("Add Ingredient", key=f"{day}_{meal}_{dish_index}_add_ing"):
+
                                 if ing_name == placeholder:
                                     st.warning("Please select a valid ingredient from the fridge!")
-                                elif ing_name.lower() not in st.session_state.fridge:
-                                    st.error(f"'{ing_name}' does not exist in the fridge!")
+
                                 else:
-                                    dish["ingredients"].append({
-                                        "name": ing_name.lower(),
-                                        "quantity": ing_qty
-                                    })
-                                    save_data()
-                                    st.success(f"Added {ing_qty:.2f} {st.session_state.fridge[ing_name.lower()]['unit']} of {ing_name} to {dish['name']}")
-                                    st.rerun()
+                                    ing_clean = ing_name.split(" (")[0].lower()
+
+                                    if ing_clean not in st.session_state.fridge:
+                                        st.error(f"'{ing_clean}' does not exist in the fridge!")
+
+                                    # ✅ NEW: duplicate guard
+                                    elif any(ing["name"] == ing_clean for ing in dish["ingredients"]):
+                                        st.warning(f"'{ing_clean}' is already in this dish!")
+
+                                    else:
+                                        dish["ingredients"].append({
+                                            "name": ing_clean,
+                                            "quantity": ing_qty
+                                        })
+
+                                        # ✅ reset inputs
+                                        value=0.1
+
+                                        save_data()
+                                        st.rerun()
 
                             # Show ingredients
-                            for ing in dish["ingredients"]:
-                                st.write(f"- {ing['quantity']:.2f} {ing['name']}")
+                            ingredients = dish.get("ingredients", [])
+                            for ing_index, ing in enumerate(ingredients):
+                                col_ing1, col_ing2 = st.columns([6, 1])
+                                unit = st.session_state.fridge.get(ing["name"], {}).get("unit", "")
+
+                                col_ing1.write(f"{ing['quantity']:.2f} {ing['name']} {unit} ")
+
+                                if col_ing2.button("Remove", key=f"{day}_{meal}_{dish_index}_del_ing_{ing_index}"):
+                                    dish["ingredients"].pop(ing_index)
+                                    save_data()
+                                    st.rerun()
 
                             # Eat this dish
                             if not dish.get("ate_out", False):
@@ -418,6 +556,7 @@ with main_tabs[1]:
 
 with main_tabs[2]: 
     st.header("Weekly Meal Plan Overview")
+
     for day in DAYS:
         st.subheader(day)
         for meal in MEALS:
@@ -427,5 +566,6 @@ with main_tabs[2]:
                 st.write("_No dishes planned_")
             for dish in dishes:
                 status = "✅ Eaten" if dish.get("eaten", False) else "⏳ Not eaten"
-                st.write(f"- 🍽 {dish['name']} ({status})")
+                emoji = "🍹" if dish.get("is_drink", False) else "🍽"
+                st.write(f"- {emoji} {dish['name']} ({status})")
         st.divider()
