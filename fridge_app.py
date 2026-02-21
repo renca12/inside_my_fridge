@@ -1,5 +1,8 @@
 import streamlit as st
 from datetime import date, datetime, timedelta
+import time
+import sqlite3
+import pandas as pd
 
 ##### FIREBASE INFO ---------------------------
 
@@ -32,14 +35,24 @@ def create_empty_weekly_plan():
 def load_data():
     fridge_doc = db.collection("fridge").document("current").get()
     weekly_plan_doc = db.collection("weekly_plan").document("current").get()
+    analytics_doc = db.collection("analytics").document("events").get()
 
     fridge = fridge_doc.to_dict() if fridge_doc.exists else {}
     weekly_plan = weekly_plan_doc.to_dict() if weekly_plan_doc.exists else create_empty_weekly_plan()
-    return fridge, weekly_plan
+
+    if analytics_doc.exists:
+        analytics_log = analytics_doc.to_dict().get("events", [])
+    else:
+        analytics_log = []
+
+    return fridge, weekly_plan, analytics_log
 
 def save_data():
     db.collection("fridge").document("current").set(st.session_state.fridge)
     db.collection("weekly_plan").document("current").set(st.session_state.weekly_plan)
+    db.collection("analytics").document("events").set({
+        "events": st.session_state.analytics_log
+    })
 
 
 ##### -----------------------------------------
@@ -81,11 +94,15 @@ CATEGORY_EMOJIS = {
 def create_empty_weekly_plan():
     return {day: {meal: [] for meal in MEALS} for day in DAYS}
 
-
-if "fridge" not in st.session_state or "weekly_plan" not in st.session_state:
-    fridge, weekly_plan = load_data()
+if (
+    "fridge" not in st.session_state
+    or "weekly_plan" not in st.session_state
+    or "analytics_log" not in st.session_state
+):
+    fridge, weekly_plan, analytics_log = load_data()
     st.session_state.fridge = fridge
     st.session_state.weekly_plan = weekly_plan
+    st.session_state.analytics_log = analytics_log
 
 if "undo_stack" not in st.session_state:
     st.session_state.undo_stack = []
@@ -93,8 +110,7 @@ if "undo_stack" not in st.session_state:
 
 fridge_doc = db.collection("fridge").document("current").get()
 print(fridge_doc.exists)
-
-
+ 
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
 # HELPERS
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
@@ -111,7 +127,7 @@ def add_to_fridge(name, quantity, unit, category, staple, low_threshold=None, ha
             "staple": staple,
             "low_threshold": float(low_threshold) if staple and low_threshold else None, 
             "has_expiry": has_expiry,
-            "expiry_days": float(expiry_days) if has_expiry and expiry_days else None,
+            "expiry_days": int(expiry_days) if has_expiry and expiry_days else None,
             "date_added": str(date.today()) if has_expiry else None,
         }
 
@@ -123,7 +139,6 @@ def remove_from_fridge(name, quantity):
             del st.session_state.fridge[name]
 
 def use_ingredients(ingredients):
-    # Save previous state for undo
     undo_snapshot = {}
     for item in ingredients:
         name = item["name"]
@@ -131,8 +146,6 @@ def use_ingredients(ingredients):
             undo_snapshot[name] = st.session_state.fridge[name]["quantity"]
     if undo_snapshot:
         st.session_state.undo_stack.append(undo_snapshot)
-    
-    # Deduct from fridge
     for item in ingredients:
         remove_from_fridge(item["name"], item["quantity"])
 
@@ -140,11 +153,16 @@ def cook_entire_meal(dishes):
     for dish in dishes:
         if not dish.get("eaten", False):
             use_ingredients(dish["ingredients"])
+            log_ingredient_usage(dish)
+
+            # 🥤 NEW — drink logging
+            if dish.get("is_drink"):
+                log_drink_consumed(dish.get("name"))
+
             dish["eaten"] = True
 
 def build_grocery_list():
     needed = {}
-
     for day in st.session_state.weekly_plan.values():
         for meal in day.values():
             for dish in meal:
@@ -153,31 +171,23 @@ def build_grocery_list():
                 for ing in dish.get("ingredients", []):
                     name = ing["name"]
                     qty = ing["quantity"]
-
                     if name not in st.session_state.fridge:
                         needed[name] = needed.get(name, 0) + qty
-
     return needed
 
 def get_expiry_status(item_info):
     if not item_info.get("has_expiry"):
         return None
-
     try:
         added_str = item_info.get("date_added")
         days = item_info.get("expiry_days")
-
-        # backward compatibility for old data
         if days is None and item_info.get("expiry_weeks") is not None:
             days = int(float(item_info.get("expiry_weeks")) * 7)
-
         if not added_str or not days:
             return None
-
         added = datetime.strptime(added_str, "%Y-%m-%d").date()
         expiry_date = added + timedelta(days=days)
         days_left = (expiry_date - date.today()).days
-
         if days_left < 0:
             return ("expired", days_left)
         elif days_left <= 3:
@@ -186,6 +196,89 @@ def get_expiry_status(item_info):
             return ("ok", days_left)
     except Exception:
         return None
+    
+def expiry_sort_key(item_tuple):
+    name, info = item_tuple
+    status = get_expiry_status(info)
+
+    # No expiry tracked → bottom
+    if not info.get("has_expiry") or status is None:
+        return (2, float("inf"))
+
+    state, days_left = status
+
+    # Expired first, then soon, then ok
+    if state == "expired":
+        priority = 0
+    elif state == "soon":
+        priority = 1
+    else:
+        priority = 2
+
+    return (priority, days_left)
+
+def log_ingredient_usage(dish):
+    today = date.today()
+
+    for ing in dish.get("ingredients", []):
+        unit = st.session_state.fridge.get(ing["name"], {}).get("unit")
+
+        st.session_state.analytics_log.append({
+            "date": str(today),
+            "year": today.year,
+            "month": today.month,
+            "day": today.day,
+            "event_type": "ingredient_used",
+            "item": ing["name"].lower(),
+            "quantity": float(ing["quantity"]),
+            "unit": unit,
+            "dish": dish.get("name"),
+        })
+
+
+def log_skipped_meal(meal_name):
+    today = date.today()
+
+    st.session_state.analytics_log.append({
+        "date": str(today),
+        "year": today.year,
+        "month": today.month,
+        "day": today.day,
+        "event_type": "meal_skipped",
+        "item": None,
+        "quantity": None,
+        "unit": None,
+        "dish": meal_name,
+    })
+
+def log_drink_consumed(dish_name):
+    today = date.today()
+
+    # 🔒 prevent duplicate logging same day
+    for e in st.session_state.analytics_log:
+        if (
+            e.get("event_type") == "drink_consumed"
+            and e.get("dish") == dish_name
+            and e.get("date") == str(today)
+        ):
+            return
+
+    st.session_state.analytics_log.append({
+        "date": str(today),
+        "year": today.year,
+        "month": today.month,
+        "day": today.day,
+        "event_type": "drink_consumed",
+        "item": dish_name.lower(),
+        "quantity": 1,
+        "unit": "count",
+        "dish": dish_name,
+    })
+
+
+
+
+
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
 # UI
 # WOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOWOW
@@ -193,7 +286,12 @@ def get_expiry_status(item_info):
 st.set_page_config(page_title="Inside My Inventory", layout="wide")
 st.title("🥕 Inside My Inventory")
 
-main_tabs = st.tabs(["🧊 Inventory", "🍽 Meal Plan", "📋 Summary"])
+main_tabs = st.tabs([
+    "🧊 Inventory",
+    "🍽 Meal Plan",
+    "📋 Summary",
+    "📊 Analytics"
+])
 
 # FRIDGE TAB
 with main_tabs[0]:
@@ -243,10 +341,14 @@ with main_tabs[0]:
     st.divider()
     st.header("Current Inventory")
     for cat in CATEGORIES:
-        items_in_cat = {k: v for k, v in st.session_state.fridge.items() if v["category"] == cat}
+        items_in_cat = [
+            (k, v) for k, v in st.session_state.fridge.items()
+            if v["category"] == cat
+        ]
+        items_in_cat.sort(key=expiry_sort_key)
         if items_in_cat:
             with st.expander(cat.title(), expanded=False):
-                for item, info in items_in_cat.items():
+                for item, info in items_in_cat:
                     col1, col2 = st.columns([6,1])
                     low_warning = ""
                     # --- expiry warning ---
@@ -262,7 +364,7 @@ with main_tabs[0]:
                     if info["staple"] and info["low_threshold"] is not None:
                         if info["quantity"] <= info["low_threshold"]:
                             low_warning = " ⚠️⏳⚠️"
-                    col1.write(f"**{item}** — {info['quantity']:.2f} {info['unit']}{low_warning}{expiry_warning}")
+                    col1.write(f"**{item}** — {info['quantity']:.2f} {info['unit']}{low_warning} {expiry_warning}")
                     if col2.button("❌", key=f"delete_{item}"):
                         del st.session_state.fridge[item]
                         save_data()
@@ -272,22 +374,22 @@ with main_tabs[0]:
     st.subheader("Manually Reduce Item")
     if st.session_state.fridge:
         selected_item = st.selectbox("Select item", list(st.session_state.fridge.keys()))
+        if selected_item:
+            info = st.session_state.fridge[selected_item]
+            st.caption(f"Currently: {info['quantity']:.2f} {info['unit']}")
         max_qty = st.session_state.fridge[selected_item]["quantity"]
         reduce_qty = st.number_input("Reduce by", min_value=0.1, max_value=float(max_qty), step=0.1, format="%.2f")
+        
         if st.button("Remove Quantity"):
             remove_from_fridge(selected_item, reduce_qty)
+            remaining = st.session_state.fridge[selected_item]["quantity"]
+            unit = st.session_state.fridge[selected_item]["unit"]
+
+            st.toast(f"{selected_item} now has {remaining:.2f} {unit} left")
             save_data()
             st.rerun()
 
-    st.divider()
-    if st.session_state.undo_stack:
-        if st.button("↩️ Undo Last Dish"):
-            last = st.session_state.undo_stack.pop()
-            for name, qty in last.items():
-                st.session_state.fridge[name]["quantity"] = qty
-            save_data()
-            st.success("Last dish undone!")
-            st.rerun()
+
 
 
 # MEAL PLAN TAB
@@ -300,7 +402,7 @@ with main_tabs[1]:
 
     day_tabs = st.tabs(DAYS)
     fridge_items = list(st.session_state.fridge.keys())
-    placeholder = "Select ingredient..."  # dropdown placeholder
+    placeholder = "Select ingredient..." 
 
     for idx, day in enumerate(DAYS):
         with day_tabs[idx]:
@@ -317,13 +419,11 @@ with main_tabs[1]:
                     if toggle_key not in st.session_state:
                         st.session_state[toggle_key] = False
 
-                    # button to open form
                     if not st.session_state[toggle_key]:
                         if st.button("➕ Add Dish", key=f"{day}_{meal}_add_dish_btn"):
                             st.session_state[toggle_key] = True
                             st.rerun()
 
-                    # form appears
                     if st.session_state[toggle_key]:
                         dish_name = st.text_input(
                             "Dish name",
@@ -402,10 +502,11 @@ with main_tabs[1]:
                                     del st.session_state[input_key]
 
                                 st.success("Meal marked as Ate Out ✅")
+                                time.sleep(1)
                                 st.rerun()
 
                         with col_cancel:
-                            if st.button("Cancel", key=f"{day}_{meal}_cancel_ate_out"):
+                            if st.button("Cancel", key=f"{day}_{meal}_cancel_ate_out"):                          
                                 st.session_state[toggle_key] = False
                                 if input_key in st.session_state:
                                     del st.session_state[input_key]
@@ -423,8 +524,10 @@ with main_tabs[1]:
                             "cooked": True,
                             "eaten": True
                         })
+                        log_skipped_meal(f"{day}-{meal}")
                         save_data()
                         st.success(f"{meal} marked as Skipped ✅")
+                        time.sleep(1)
                         st.rerun()
 
                 # ----------------- Display Planned Dishes -----------------
@@ -439,6 +542,7 @@ with main_tabs[1]:
                             cook_entire_meal(dishes)
                             save_data()
                             st.success(f"{meal} cooked!")
+                            time.sleep(1)
                             st.rerun()
                     else:
                         st.warning("⚠️ Cannot consume entire meal — no ingredients have been added yet!")
@@ -510,9 +614,6 @@ with main_tabs[1]:
                                             "quantity": ing_qty
                                         })
 
-                                        # ✅ reset inputs
-                                        value=0.1
-
                                         save_data()
                                         st.rerun()
 
@@ -534,9 +635,15 @@ with main_tabs[1]:
                                 if st.button("Eat This Dish", key=f"{day}_{meal}_{dish_index}_cook"):
                                     if not dish.get("eaten", False):
                                         use_ingredients(dish["ingredients"])
+                                        log_ingredient_usage(dish)
+
+                                        if dish.get("is_drink"):
+                                            log_drink_consumed(dish.get("name"))
+
                                         dish["eaten"] = True
                                         save_data()
                                         st.success("Inventory updated!")
+                                        time.sleep(1)
                                         st.rerun()
                                     else:
                                         st.warning("This dish has already been eaten.")
@@ -553,7 +660,6 @@ with main_tabs[1]:
                 st.divider()
 
 # MEAL PLAN SUMMARY TAB
-
 with main_tabs[2]: 
     st.header("Weekly Meal Plan Overview")
 
@@ -569,3 +675,123 @@ with main_tabs[2]:
                 emoji = "🍹" if dish.get("is_drink", False) else "🍽"
                 st.write(f"- {emoji} {dish['name']} ({status})")
         st.divider()
+
+with main_tabs[3]:
+    MONTH_NAMES = [
+    "January", "February", "March", "April", "May", "June",
+    "July", "August", "September", "October", "November", "December"
+    ]
+    st.header("📊 Ingredient Analytics")
+
+
+    if not st.session_state.analytics_log:
+        st.info("No analytics data yet.")
+        st.stop()
+
+    df = pd.DataFrame(st.session_state.analytics_log)
+
+    # =========================
+    # Filter controls
+    # =========================
+    st.subheader("Filter")
+
+    timeframe = st.selectbox(
+        "Select timeframe",
+        ["All Time", "By Year", "By Month"]
+    )
+
+    filtered = df[df["event_type"] == "ingredient_used"].copy()
+
+    if timeframe == "By Year":
+        year = st.number_input(
+            "Year",
+            min_value=2020,
+            max_value=2100,
+            value=datetime.today().year,
+            step=1
+        )
+        filtered = filtered[filtered["year"] == year]
+
+    elif timeframe == "By Month":
+        col1, col2 = st.columns(2)
+
+        with col1:
+            year = st.number_input(
+                "Year",
+                min_value=2020,
+                max_value=2100,
+                value=datetime.today().year,
+                step=1,
+                key="analytics_month_year"
+            )
+
+        with col2:
+            month_name = st.selectbox(
+                "Month",
+                MONTH_NAMES,
+                index=datetime.today().month - 1
+            )
+
+            month = MONTH_NAMES.index(month_name) + 1
+
+        filtered = filtered[
+            (filtered["year"] == year) &
+            (filtered["month"] == month)
+        ]
+        
+        st.subheader(f"📅 {month_name} {year}")
+    if filtered.empty:
+        st.info("No ingredient usage for this timeframe.")
+        st.stop()
+
+    # =========================
+    # Aggregate usage
+    # =========================
+    agg = (
+        filtered
+        .groupby("item")
+        .size()
+        .reset_index(name="uses")
+        .sort_values("uses", ascending=False)
+    )
+
+    top10 = agg.head(10)
+    top10 = top10.rename(columns={"uses": "times_used"})
+    # =========================
+    # Metrics
+    # =========================
+    st.subheader("Summary")
+
+    col1, col2, col3 = st.columns(3)
+
+    with col1:
+        st.metric("Unique ingredients", agg["item"].nunique())
+
+    with col2:
+        st.metric("Total ingredient uses", len(filtered))
+
+    with col3:
+        drink_count = sum(
+            1 for e in st.session_state.analytics_log
+            if e.get("event_type") == "drink_consumed"
+        )
+        st.metric("🥤 Drinks consumed", drink_count)
+
+    # =========================
+    # Top 10 table
+    # =========================
+    st.subheader("🏆 Top 10 Ingredients")
+
+    st.dataframe(top10, use_container_width=True)
+
+
+    # =========================
+    # Skipped meals metric
+    # =========================
+    skipped_count = sum(
+        1 for e in st.session_state.analytics_log
+        if e.get("event_type") == "meal_skipped"
+    )
+
+    st.divider()
+    st.metric("⏭ Meals skipped", skipped_count)
