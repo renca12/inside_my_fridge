@@ -738,7 +738,7 @@ with main_tabs[3]:
             (filtered["year"] == year) &
             (filtered["month"] == month)
         ]
-        
+
         st.subheader(f"📅 {month_name} {year}")
     if filtered.empty:
         st.info("No ingredient usage for this timeframe.")
@@ -756,7 +756,10 @@ with main_tabs[3]:
     )
 
     top10 = agg.head(10)
-    top10 = top10.rename(columns={"uses": "times_used"})
+    top10.index = range(1, len(top10) + 1)
+    top10.index.name = "Rank"
+    top10 = top10.rename(columns={"uses": "Frequency", "item": "Items"})
+    
     # =========================
     # Metrics
     # =========================
@@ -765,17 +768,17 @@ with main_tabs[3]:
     col1, col2, col3 = st.columns(3)
 
     with col1:
-        st.metric("Unique ingredients", agg["item"].nunique())
+        st.metric("Unique Ingredients", agg["item"].nunique())
 
     with col2:
-        st.metric("Total ingredient uses", len(filtered))
+        st.metric("Total Ingredient uses", len(filtered))
 
     with col3:
         drink_count = sum(
             1 for e in st.session_state.analytics_log
             if e.get("event_type") == "drink_consumed"
         )
-        st.metric("🥤 Drinks consumed", drink_count)
+        st.metric("🥤 Drinks Consumed", drink_count)
 
     # =========================
     # Top 10 table
